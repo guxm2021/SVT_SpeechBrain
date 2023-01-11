@@ -10,12 +10,12 @@ Singing voice transcription converts recorded singing audio to musical notation.
 ## Method Overview
 The following figure shows the overview of our audio-visual singing voice transcription system.
 <p align="center">
-<img src="assets/AV_SVT.png" alt="" data-canonical-src="assets/AV_SVT.png" width="100%"/>
+<img src="assets/AV_SVT.png" alt="" data-canonical-src="assets/AV_SVT.png" width="80%"/>
 </p>
 
 The following figure shows the training procedure of single-modaly singing voice transcription system based on Linear Probing-Full Finetuning.
 <p align="center">
-<img src="assets/svt_train.png" alt="" data-canonical-src="assets/svt_train.png" width="100%"/>
+<img src="assets/svt_train.png" alt="" data-canonical-src="assets/svt_train.png" width="80%"/>
 </p>
 
 ## Installation
