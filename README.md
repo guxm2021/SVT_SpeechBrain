@@ -22,7 +22,7 @@ The following figure shows the training procedure of single-modaly singing voice
 ### Environement
 Install Anaconda and create the environment with python 3.8.12, pytorch 1.9.0 and cuda 11.1:
 ```
-conda create -n alt python=3.8.12
+conda create -n svt python=3.8.12
 pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
@@ -70,8 +70,6 @@ cd <dataset>/<task>
 python experiment.py params.yaml
 ```
 You may need to create csv files according to our guidance in `<dataset>/<task>`. The results will be saved in the `output_folder` specified in the yaml file. Both detailed logs and experiment outputs are saved there. Furthermore, less verbose logs are output to stdout.
-
-NOTE: The evaluation of Hansen / Jamendo / Mauch datasets are included in the folder `DALI/ALT`.
 
 ## Citation
 ```BibTex
