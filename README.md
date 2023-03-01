@@ -39,6 +39,24 @@ pip install --editable .
 ```
 pip install -r dependencies.txt
 ```
+
+### AV-Hubert
+We adapt [AV-Hubert (Audio-Visual Hidden Unit BERT)](https://github.com/facebookresearch/av_hubert) in our experiments. To enable the usage of AV-Hubert, run following commands:
+```
+cd ..
+git clone https://github.com/facebookresearch/av_hubert.git
+cd av_hubert
+git submodule init
+git submodule update
+```
+
+[Fairseq](https://github.com/facebookresearch/fairseq) and dependencies are also required:
+```
+pip install -r requirements.txt
+cd fairseq
+pip install --editable ./
+```
+
 ## Datasets
 ### MIR-ST500
 [MIR-ST500 dataset](https://ieeexplore.ieee.org/document/9414601) is the largest singing voice transcription dataset with manual annotations. MIR-ST500 has 500 Chinese pop songs (about 30 hours) including 400 songs for training and 100 songs for evaluation. To download and prepare this dataset, we follow its github website https://github.com/york135/singing_transcription_ICASSP2021. 
