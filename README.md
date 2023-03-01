@@ -37,10 +37,7 @@ pip install --editable .
 
 [Transformers](https://github.com/huggingface/transformers) and other packages are also required:
 ```
-pip install transformers
-pip install datasets
-pip install sklearn
-pip install mir_eval
+pip install -r dependencies.txt
 ```
 ## Datasets
 ### MIR-ST500
@@ -51,7 +48,7 @@ pip install mir_eval
 
 
 ### ISMIR2014
-[TONAS dataset](https://riuma.uma.es/xmlui/bitstream/handle/10630/8372/298_Paper.pdf?sequence=1) is another evaluation set for singing voice transcription dataset. ISMIR2014 has 14 songs sung by children, 13 by male adults and 11 by female adults (38 pop songs, 19 minutes in total duration). 
+[ISMIR2014 dataset](https://riuma.uma.es/xmlui/bitstream/handle/10630/8372/298_Paper.pdf?sequence=1) is another evaluation set for singing voice transcription dataset. ISMIR2014 has 14 songs sung by children, 13 by male adults and 11 by female adults (38 pop songs, 19 minutes in total duration). 
 
 ### N20EMv2
 N20EMv2 dataset is curated by ourselves for our audio-visual singing voice transcription task. We will release the dataset soon.

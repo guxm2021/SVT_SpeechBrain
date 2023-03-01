@@ -1,4 +1,8 @@
--r lint-requirements.txt
+black==19.10b0
+flake8==3.7.9
+pycodestyle==2.5.0
+pytest==5.4.1
+yamllint==1.23.0
 huggingface_hub>=0.0.6
 hyperpyyaml>=0.0.1
 joblib>=0.14.1
