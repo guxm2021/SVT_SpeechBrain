@@ -1,8 +1,8 @@
 #!/usr/bin/env/python3
-"""Recipe for training a wav2vec-based SVT system with MIR-ST500 dataset
-The system employs wav2vec 2.0 as its encoder. 
+"""Recipe for training a encoder-based SVT system with N20EMv2 dataset
+The system employs AV-HuBERT as its encoder. 
 To run this recipe, do the following:
-> python train_wav2vec2.py hparams/train_wav2vec2.yaml
+> python train_encoder.py hparams/train_encoder.yaml
 
 Authors
  * Xiangming Gu 2022
@@ -17,7 +17,7 @@ import numpy as np
 import speechbrain as sb
 from hyperpyyaml import load_hyperpyyaml
 from pathlib import Path
-from utils import frame2note, AverageMeter
+from utils import frame2note, AverageMeter, Compose, Normalize, RandomCrop, HorizontalFlip, CenterCrop
 from mir_eval import transcription, util
 logger = logging.getLogger(__name__)
 
@@ -27,28 +27,31 @@ class SVT(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
-        wavs, wav_lens = batch.sig
-        wavs, wav_lens = wavs.to(self.device), wav_lens.to(self.device)
+        video, video_lens = batch.sig
+        video, video_lens = video.to(self.device), video_lens.to(self.device)
 
         # Forward pass
-        feats = self.modules.wav2vec2(wavs)   # (batch, frame, feat_dim)
-
+        video = video.permute(0, 4, 1, 2, 3).contiguous()  # [B, C, T, H, W]
+        video_feats = {"video": video, "audio": None}
+        feats = self.modules.encoder(video_feats)   # (batch, frame, feat_dim)
         # Compute outputs
         pitch_octave_num = self.hparams.pitch_octave_num
         pitch_class_num = self.hparams.pitch_class_num
 
-        logits = self.modules.model(feats)      # (batch, frame, 2+pitch_class+pitch_octave+2)
+        logits = self.modules.head(feats)      # (batch, frame, 2+pitch_class+pitch_octave+2)
+        # print(logits)
         onset_logits = logits[:, :, 0]
         offset_logits = logits[:, :, 1]
         pitch_out = logits[:, :, 2:]
         pitch_octave_logits = pitch_out[:, :, 0:pitch_octave_num+1]
         pitch_class_logits = pitch_out[:, :, pitch_octave_num+1:]
 
-        return onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, wav_lens
+        return onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits,  video_lens
 
     def compute_objectives(self, predictions, batch, stage):
+        """Computes the loss (CTC+NLL) given predictions and targets."""
         # predictions
-        onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, wav_lens = predictions
+        onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, video_lens = predictions
         
         # ground truth
         ids = batch.id
@@ -61,25 +64,25 @@ class SVT(sb.Brain):
         
         # Compute BCE Loss
         onset_positive_weight = torch.tensor([self.hparams.onset_positive_weight,], device=self.device)
-        onset_loss = self.hparams.onset_criterion(onset_logits, onset_prob_gt, length=wav_lens, pos_weight=onset_positive_weight)
+        onset_loss = self.hparams.onset_criterion(onset_logits, onset_prob_gt, length=video_lens, pos_weight=onset_positive_weight)
         offset_positive_weight = torch.tensor([self.hparams.offset_positive_weight,], device=self.device)
-        offset_loss = self.hparams.offset_criterion(offset_logits, offset_prob_gt, length=wav_lens,pos_weight=offset_positive_weight)
-        
+        offset_loss = self.hparams.offset_criterion(offset_logits, offset_prob_gt, length=video_lens,pos_weight=offset_positive_weight)
+
         # Compute CE Loss
         pitch_octave_log_prob = self.hparams.log_softmax(pitch_octave_logits)
-        octave_loss = self.hparams.octave_criterion(pitch_octave_log_prob, pitch_octave_gt, length=wav_lens)
+        octave_loss = self.hparams.octave_criterion(pitch_octave_log_prob, pitch_octave_gt, length=video_lens)
         pitch_class_log_prob = self.hparams.log_softmax(pitch_class_logits)
-        pitch_loss = self.hparams.pitch_criterion(pitch_class_log_prob, pitch_class_gt, length=wav_lens)
+        pitch_loss = self.hparams.pitch_criterion(pitch_class_log_prob, pitch_class_gt, length=video_lens)
 
         # Compute Total Loss
         loss = onset_loss + offset_loss + octave_loss + pitch_loss
 
         if stage != sb.Stage.TRAIN:
             # Record loss terms
-            self.onset_loss_metric.append(ids, onset_logits, onset_prob_gt, wav_lens, None, onset_positive_weight)
-            self.offset_loss_metric.append(ids, offset_logits, offset_prob_gt, wav_lens, None, offset_positive_weight)
-            self.octave_loss_metric.append(ids, pitch_octave_log_prob, pitch_octave_gt, wav_lens)
-            self.pitch_loss_metric.append(ids, pitch_class_log_prob, pitch_class_gt, wav_lens)
+            self.onset_loss_metric.append(ids, onset_logits, onset_prob_gt, video_lens, None, onset_positive_weight)
+            self.offset_loss_metric.append(ids, offset_logits, offset_prob_gt, video_lens, None, offset_positive_weight)
+            self.octave_loss_metric.append(ids, pitch_octave_log_prob, pitch_octave_gt, video_lens)
+            self.pitch_loss_metric.append(ids, pitch_class_log_prob, pitch_class_gt, video_lens)
             # Combine the predictions of multiple utterances and obtain the note-level prediction
             cur_utter = batch.cur_utter.item()
             all_utter = batch.all_utter.item()
@@ -99,7 +102,6 @@ class SVT(sb.Brain):
                 self.song_pred.append(frame_info)
             if cur_utter == all_utter:
                 # we reach the end of a song
-
                 # estimation
                 est_result = frame2note(self.song_pred, onset_thres=self.hparams.onset_threshold, 
                                         offset_thres=self.hparams.offset_threshold,
@@ -134,7 +136,8 @@ class SVT(sb.Brain):
 
                     # compute the metric
                     raw_data = transcription.evaluate(ref_intervals, ref_pitchs, est_intervals, est_pitchs, 
-                                                      onset_tolerance=self.hparams.onset_tolerance, 
+                                                      onset_tolerance=self.hparams.onset_tolerance,
+                                                      offset_min_tolerance=self.hparams.offset_tolerance,
                                                       pitch_tolerance=self.hparams.pitch_tolerance)
                     self.COnPOff_precis.update(raw_data['Precision'])
                     self.COnPOff_recall.update(raw_data['Recall'])
@@ -161,11 +164,11 @@ class SVT(sb.Brain):
         loss = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
         loss.backward()
         if self.check_gradients(loss):
-            self.wav2vec_optimizer.step()
-            self.model_optimizer.step()
+            self.encoder_optimizer.step()
+            self.head_optimizer.step()
 
-        self.wav2vec_optimizer.zero_grad()
-        self.model_optimizer.zero_grad()
+        self.encoder_optimizer.zero_grad()
+        self.head_optimizer.zero_grad()
 
         return loss.detach()
 
@@ -175,6 +178,57 @@ class SVT(sb.Brain):
         with torch.no_grad():
             loss = self.compute_objectives(predictions, batch, stage=stage)
         return loss.detach()
+
+    def on_stage_start(self, stage, epoch):
+        """Gets called at the beginning of each epoch"""
+        self.onset_loss_metric = self.hparams.onset_stats()
+        self.offset_loss_metric = self.hparams.offset_stats()
+        self.octave_loss_metric = self.hparams.octave_stats()
+        self.pitch_loss_metric = self.hparams.pitch_stats()
+        if stage != sb.Stage.TRAIN:
+            self.last_utter = 0    # determine the order of utterances
+            self.song_pred = []    # record predictions of each song
+            self.cur_epoch = epoch # record the current epoch
+            self.COnPOff_precis = AverageMeter() # self.hparams.COnPOff_precis
+            self.COnPOff_precis.reset()
+            self.COnPOff_recall = AverageMeter() # self.hparams.OnPOff_recall
+            self.COnPOff_recall.reset()
+            self.COnPOff_f1 = AverageMeter() # self.hparams.COnPOff_f1
+            self.COnPOff_f1.reset()
+            self.COnP_precis = AverageMeter() # self.hparams.COnP_precis
+            self.COnP_precis.reset()
+            self.COnP_recall = AverageMeter() # self.hparams.COnP_recall
+            self.COnP_recall.reset()
+            self.COnP_f1 = AverageMeter() # self.hparams.COnP_f1
+            self.COnP_f1.reset()
+            self.COn_precis = AverageMeter() # self.hparams.COn_precis
+            self.COn_precis.reset()
+            self.COn_recall = AverageMeter() # self.hparams.COn_recall
+            self.COn_recall.reset()
+            self.COn_f1 = AverageMeter() # self.hparams.COn_f1
+            self.COn_f1.reset()
+            self.COff_precis = AverageMeter() # self.hparams.COff_precis
+            self.COff_precis.reset()
+            self.COff_recall = AverageMeter() # self.hparams.COff_recall
+            self.COff_recall.reset()
+            self.COff_f1 = AverageMeter() # self.hparams.COff_f1
+            self.COff_f1.reset()
+        else:
+            # linear probing
+            if epoch <= self.hparams.linear_prob_epochs:
+                print("Stage for linear probing")
+                self.set_requires_grad(self.modules.encoder, False)
+            else:
+                print("Stage for full finetuning")
+                self.set_requires_grad(self.modules.encoder, True)
+    
+    def set_requires_grad(self, nets, requires_grad=False):
+        if not isinstance(nets, list):
+            nets = [nets]
+        for net in nets:
+            if net is not None:
+                for param in net.parameters():
+                    param.requires_grad = requires_grad
     
     def on_evaluate_start(self, max_key=None, min_key=None):
         """Gets called at the beginning of ``evaluate()``
@@ -203,63 +257,11 @@ class SVT(sb.Brain):
         # save wav2vec 2.0 and encoder-decoder model
         if self.hparams.save_model:
             os.makedirs(self.hparams.save_model_folder, exist_ok=True)
-            torch.save(self.modules.wav2vec2.state_dict(), os.path.join(self.hparams.save_model_folder, 'wav2vec2.pt'))
-            torch.save(self.modules.model.state_dict(), os.path.join(self.hparams.save_model_folder, 'model.pt'))
+            torch.save(self.modules.encoder.state_dict(), os.path.join(self.hparams.save_model_folder, 'avhubert.pt'))
+            torch.save(self.modules.head.state_dict(), os.path.join(self.hparams.save_model_folder, 'video_cls.pt'))
             logger.info(f"Save wav2vec 2.0 and classifier to the folder: {self.hparams.save_model_folder}")
         else:
             logger.info("No wav2vec 2.0 and classifier to save")
-
-
-    def on_stage_start(self, stage, epoch):
-        """Gets called at the beginning of each epoch"""
-        self.onset_loss_metric = self.hparams.onset_stats()
-        self.offset_loss_metric = self.hparams.offset_stats()
-        self.octave_loss_metric = self.hparams.octave_stats()
-        self.pitch_loss_metric = self.hparams.pitch_stats()
-        if stage != sb.Stage.TRAIN:
-            self.last_utter = 0    # determine the order of utterances
-            self.song_pred = []    # record predictions of each song
-            self.cur_epoch = epoch # record the current epoch
-            self.COnPOff_precis = AverageMeter() # self.hparams.COnPOff_precis
-            self.COnPOff_precis.reset()
-            self.COnPOff_recall = AverageMeter() # self.hparams.OnPOff_recall
-            self.COnPOff_recall.reset()
-            self.COnPOff_f1 = AverageMeter() # self.hparams.COnPOff_f1
-            self.COnPOff_f1.reset()
-            self.COnP_precis = AverageMeter() # self.hparams.COnP_precis
-            self.COnP_precis.reset()
-            self.COnP_recall = AverageMeter() # self.hparams.COnP_recall
-            self.COnP_recall.reset()
-            self.COnP_f1 = AverageMeter() # self.hparams.COnP_f1
-            self.COnP_f1.reset()
-            self.COn_precis = AverageMeter() # self.hparams.COn_precis
-            self.COn_precis.reset()
-            self.COn_recall = AverageMeter() # self.hparams.COn_recall
-            self.COn_recall.reset()
-            self.COn_f1 = AverageMeter() # self.hparams.COff_f1
-            self.COn_f1.reset()
-            self.COff_precis = AverageMeter() # self.hparams.COff_precis
-            self.COff_precis.reset()
-            self.COff_recall = AverageMeter() # self.hparams.COff_recall
-            self.COff_recall.reset()
-            self.COff_f1 = AverageMeter() # self.hparams.COff_f1
-            self.COff_f1.reset()
-        else:
-            # linear probing
-            if epoch <= self.hparams.linear_prob_epochs:
-                print("Stage for linear probing")
-                self.set_requires_grad(self.modules.wav2vec2, False)
-            else:
-                print("Stage for full finetuning")
-                self.set_requires_grad(self.modules.wav2vec2, True)
-    
-    def set_requires_grad(self, nets, requires_grad=False):
-        if not isinstance(nets, list):
-            nets = [nets]
-        for net in nets:
-            if net is not None:
-                for param in net.parameters():
-                    param.requires_grad = requires_grad
     
     def on_fit_start(self):
         """Gets called at the beginning of ``fit()``, on multiple processes
@@ -285,11 +287,10 @@ class SVT(sb.Brain):
             )
         
         if self.hparams.pretrain:
-            logger.info(f"Load wav2vec 2.0 model and classifier from the folder: {self.hparams.pretrain_folder}")
-            self.modules.wav2vec2.load_state_dict(torch.load(os.path.join(self.hparams.pretrain_folder, "wav2vec2.pt")))
-            self.modules.model.load_state_dict(torch.load(os.path.join(self.hparams.pretrain_folder, "model.pt")))
+            logger.info(f"Load encoder model weights from the folder: {self.hparams.pretrain_folder}")
+            self.modules.encoder.load_state_dict(torch.load(os.path.join(self.hparams.pretrain_folder, "encoder.pt")))
         else:
-            logger.info("No wav2vec 2.0 and classifier to be transferred")
+            logger.info("No pretrained encoder to be transferred")
             
     def on_stage_end(self, stage, stage_loss, epoch):
         """Gets called at the end of an epoch."""
@@ -313,23 +314,23 @@ class SVT(sb.Brain):
 
         # Perform end-of-iteration things, like annealing, logging, etc.
         if stage == sb.Stage.VALID:
-            old_lr_model, new_lr_model = self.hparams.lr_annealing_model(
+            old_lr_head, new_lr_head = self.hparams.lr_annealing_head(
                 stage_stats["loss"]
             )
-            old_lr_wav2vec, new_lr_wav2vec = self.hparams.lr_annealing_wav2vec(
+            old_lr_encoder, new_lr_encoder = self.hparams.lr_annealing_encoder(
                 stage_stats["loss"]
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.model_optimizer, new_lr_model
+                self.head_optimizer, new_lr_head
             )
             sb.nnet.schedulers.update_learning_rate(
-                self.wav2vec_optimizer, new_lr_wav2vec
+                self.encoder_optimizer, new_lr_encoder
             )
             self.hparams.train_logger.log_stats(
                 stats_meta={
                     "epoch": epoch,
-                    "lr_model": old_lr_model,
-                    "lr_wav2vec": old_lr_wav2vec,
+                    "lr_head": old_lr_head,
+                    "lr_encoder": old_lr_encoder,
                 },
                 train_stats=self.train_stats,
                 valid_stats={
@@ -371,31 +372,26 @@ class SVT(sb.Brain):
             )
 
     def init_optimizers(self):
-        "Initializes the wav2vec2 optimizer and model optimizer"
-        self.wav2vec_optimizer = self.hparams.wav2vec_opt_class(
-            self.modules.wav2vec2.parameters()
+        "Initializes the encoder optimizer and head optimizer"
+        self.encoder_optimizer = self.hparams.encoder_opt_class(
+            self.modules.encoder.parameters()
         )
-        self.model_optimizer = self.hparams.model_opt_class(
-            self.hparams.model.parameters()
+        self.head_optimizer = self.hparams.head_opt_class(
+            self.modules.head.parameters()
         )
 
         if self.checkpointer is not None:
-            self.checkpointer.add_recoverable("wav2vec_opt", self.wav2vec_optimizer)
-            self.checkpointer.add_recoverable("modelopt", self.model_optimizer)
+            self.checkpointer.add_recoverable("encoder_opt", self.encoder_optimizer)
+            self.checkpointer.add_recoverable("head_opt", self.head_optimizer)
 
 
 def dataio_prepare(hparams):
     """This function prepares the datasets to be used in the brain class.
     It also defines the data processing pipeline through user-defined functions."""
     data_folder = hparams["data_folder"]
-    
-    # choose whether to mix the training data of MIR_ST500 and N20EMv2
-    if hparams["mix_train"]:
-        train_csv_path = hparams["mix_train_csv"]
-    else:
-        train_csv_path = hparams["train_csv"]
+
     train_data = sb.dataio.dataset.DynamicItemDataset.from_csv(
-        csv_path=train_csv_path, replacements={"data_root": data_folder},
+        csv_path=hparams["train_csv"], replacements={"data_root": data_folder},
     )
 
     if hparams["sorting"] == "ascending":
@@ -436,16 +432,112 @@ def dataio_prepare(hparams):
         # test_datasets[name] = test_datasets[name].filtered_sorted(sort_key="duration")
 
     datasets = [train_data, valid_data] + [i for k, i in test_datasets.items()]
+    train_datasets = [train_data]
+    eval_datasets = [valid_data] + [i for k, i in test_datasets.items()]
     
     dur_threshold = hparams["dur_threshold"]
+    overlap = hparams["overlap"]
     sample_rate = hparams["sample_rate"]
     frame_rate = hparams["frame_rate"]
-    # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "utter_id", "utter_num")
-    @sb.utils.data_pipeline.provides("sig")
-    def audio_pipeline(wav, utter_id, utter_num):
-        sig = sb.dataio.dataio.read_audio(wav)
-        assert len(sig.shape) == 1
+    split_noise = hparams["split_noise"]
+    stride = dur_threshold - overlap
+    # 2. Define video pipeline:
+    image_crop_size = 88
+    image_mean = 0.421
+    image_std = 0.165
+    transform_train = Compose([
+                      Normalize( 0.0,255.0 ),
+                      RandomCrop((image_crop_size, image_crop_size)),
+                      HorizontalFlip(0.5),
+                      Normalize(image_mean, image_std) ])
+
+    transform_eval  = Compose([
+                      Normalize( 0.0,255.0 ),
+                      CenterCrop((image_crop_size, image_crop_size)),
+                      Normalize(image_mean, image_std) ])
+    # 2. Define audio and frame anno pipeline:
+    @sb.utils.data_pipeline.takes("video", "duration", "frame_anno", "utter_id", "utter_num")
+    @sb.utils.data_pipeline.provides("sig", "anno", "cur_utter", "all_utter")
+    def utterance_train_pipeline(video, duration, frame_anno, utter_id, utter_num):
+        # For training set, there are overlaps and random boundaries
+        # 1. create random boundaries
+        # original location: 0, random shift: -stride/2~+stride/2
+        # if utter_id == 1, random shift: 0~stride/2
+        # if utter_id == utter_num, and if duration < threshold, random shift: -stride/2~0, and if duration > threshold, random shift: 0~+stride/2
+        if split_noise:
+            shift = torch.rand(1).item() * stride - stride / 2
+        else:
+            shift = 0
+        # load video
+        sig = np.load(video) # (T, H, W)
+        # data pre-processing
+        sig = transform_train(sig)
+        sig = np.expand_dims(sig, axis=-1)
+        sig = torch.from_numpy(sig.astype(np.float32)) # (T, H, W, C)
+        utter_id = int(utter_id)
+        utter_num = int(utter_num)
+        duration = float(duration)
+        if utter_id == 1:
+            # random shift: 0~stride/2
+            num_sample1 = sample_rate * abs(shift)
+            num_sample2 = sample_rate * abs(shift) + sample_rate * dur_threshold
+            num_sample1 = round(num_sample1)
+            num_sample2 = round(num_sample2)
+            sig = sig[num_sample1:num_sample2]
+        if utter_id == utter_num:
+            # if duration < threshold, random shift: -stride/2~0, and if duration > threshold, random shift: 0~+stride/2
+            if duration < dur_threshold:
+                num_sample = (utter_id - 1) * sample_rate * stride - sample_rate * abs(shift)
+            else:
+                num_sample = (utter_id - 1) * sample_rate * stride + sample_rate * abs(shift)
+            num_sample = round(num_sample)
+            sig = sig[num_sample:]
+        else:
+            # random shift: -stride/2~+stride/2
+            num_sample1 = (utter_id - 1) * sample_rate * stride + sample_rate * shift
+            num_sample2 = (utter_id - 1) * sample_rate * stride + sample_rate * shift + sample_rate * dur_threshold
+            num_sample1 = round(num_sample1)
+            num_sample2 = round(num_sample2)
+            sig = sig[num_sample1:num_sample2]
+        # 3. load frame-level annotation
+        anno = np.load(frame_anno)
+        anno = torch.from_numpy(anno)
+        if utter_id == 1:
+            # random shift: 0~stride/2
+            num_frame1 = frame_rate * abs(shift)
+            num_frame2 = frame_rate * abs(shift) + frame_rate * dur_threshold
+            num_frame1 = round(num_frame1)
+            num_frame2 = round(num_frame2)
+            anno = anno[num_frame1:num_frame2]
+        elif utter_id == utter_num:
+            # if duration < threshold, random shift: -stride/2~0, and if duration > threshold, random shift: 0~+stride/2
+            if duration < dur_threshold:
+                num_frame = (utter_id - 1) * frame_rate * stride - frame_rate * abs(shift)
+            else:
+                num_frame = (utter_id - 1) * frame_rate * stride + frame_rate * abs(shift)
+            num_frame = round(num_frame)
+            anno = anno[num_frame:]
+        else:
+            # random shift: -stride/2~+stride/2
+            num_frame1 = (utter_id - 1) * frame_rate * stride + frame_rate * shift
+            num_frame1 = round(num_frame1)
+            num_frame2 = (utter_id - 1) * frame_rate * stride + frame_rate * shift + frame_rate * dur_threshold
+            num_frame2 = round(num_frame2)
+            anno = anno[num_frame1:num_frame2]
+        cur_utter = utter_id
+        all_utter = utter_num
+        return sig, anno, cur_utter, all_utter
+    
+    @sb.utils.data_pipeline.takes("video", "frame_anno", "utter_id", "utter_num")
+    @sb.utils.data_pipeline.provides("sig", "anno", "cur_utter", "all_utter")
+    def utterance_eval_pipeline(video, frame_anno, utter_id, utter_num):
+        # For evaluation sets, there are no overlaps, no random boundaries
+        # load video
+        sig = np.load(video) # (T, H, W)
+        # data pre-processing
+        sig = transform_eval(sig)
+        sig = np.expand_dims(sig, axis=-1)
+        sig = torch.from_numpy(sig.astype(np.float32)) # (T, H, W, C)
         utter_id = int(utter_id)
         utter_num = int(utter_num)
         if utter_id == utter_num:
@@ -458,26 +550,7 @@ def dataio_prepare(hparams):
             num_sample1 = round(num_sample1)
             num_sample2 = round(num_sample2)
             sig = sig[num_sample1:num_sample2]
-        return sig
-
-    sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
-
-    # 3. Define annotation pipeline:
-    @sb.utils.data_pipeline.takes("frame_anno", "song_anno", "utter_id", "utter_num")
-    @sb.utils.data_pipeline.provides("anno", "cur_utter", "all_utter", "ref_intervals", "ref_pitchs")
-    def anno_pipeline(frame_anno, song_anno, utter_id, utter_num):
-        utter_id = int(utter_id)
-        utter_num = int(utter_num)
-        # handle the note-level annotations
-        with open(song_anno) as json_data:
-            song_anno = json.load(json_data)
-        json_data.close()
-        song_anno_np = np.array(song_anno)
-        ref_interval_np = song_anno_np[:, :2]
-        ref_pitchs_np = song_anno_np[:, 2]
-        ref_intervals = torch.from_numpy(ref_interval_np)
-        ref_pitchs = torch.from_numpy(ref_pitchs_np)
-        # handle the frame-level annotations
+        # 2. load frame-level annotations
         anno = np.load(frame_anno)
         anno = torch.from_numpy(anno)
         if utter_id == utter_num:
@@ -492,9 +565,27 @@ def dataio_prepare(hparams):
             anno = anno[num_frame1:num_frame2]
         cur_utter = utter_id
         all_utter = utter_num
-        return anno, cur_utter, all_utter, ref_intervals, ref_pitchs
+        return sig, anno, cur_utter, all_utter
+    
+    sb.dataio.dataset.add_dynamic_item(train_datasets, utterance_train_pipeline)
+    sb.dataio.dataset.add_dynamic_item(eval_datasets, utterance_eval_pipeline)
+    
+    # 3. Define annotation pipeline:
+    @sb.utils.data_pipeline.takes("song_anno")
+    @sb.utils.data_pipeline.provides("ref_intervals", "ref_pitchs")
+    def song_pipeline(song_anno):
+        # handle the note-level annotations
+        with open(song_anno) as json_data:
+            song_anno = json.load(json_data)
+        json_data.close()
+        song_anno_np = np.array(song_anno)
+        ref_interval_np = song_anno_np[:, :2]
+        ref_pitchs_np = song_anno_np[:, 2]
+        ref_intervals = torch.from_numpy(ref_interval_np)
+        ref_pitchs = torch.from_numpy(ref_pitchs_np)
+        return ref_intervals, ref_pitchs
 
-    sb.dataio.dataset.add_dynamic_item(datasets, anno_pipeline)
+    sb.dataio.dataset.add_dynamic_item(datasets, song_pipeline)
 
     # 4. Set output:
     sb.dataio.dataset.set_output_keys(

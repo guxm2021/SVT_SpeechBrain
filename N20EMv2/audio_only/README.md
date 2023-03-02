@@ -1,4 +1,4 @@
-# Singing Voice Transcription with N20EMv2 dataset
+# Audio-only Singing Voice Transcription with N20EMv2 dataset
 This sub-project contains recipes for trianing audio-only SVT system using N20EMv2 dataset.
 
 ## Prerequisites
@@ -34,6 +34,7 @@ The file organization for N20EMv2 should be:
 ├── data
     ├── song1
         ├── vocals.wav
+        ├── video_50fps.npy
     ├── song2
     ├── ...
 ├── annotations.json
@@ -44,7 +45,7 @@ The file organization for N20EMv2 should be:
 ```
 python prepare_benchmarks.py --duration <duration> --frame_rate 49.8 --mir_st500 /path/to/MIR_ST500 --ismir /path/to/ISMIR2014 --tonas /path/to/TONAS
 ```
-The option `--duration` refers to the length of utterances during the training. To parallelize the training, we split the whole song into short utterances during the training. The evaluation is conducted on the whole song. As a default, we use `5` s in our paper. The option `--frame_rate` refers to the frame rate of frame-level annotations. As a default, we use `49.8` fps in our paper.
+The option `--duration` refers to the length of utterances during the training. To parallelize the training, we split the whole song into short utterances during the training. The evaluation is conducted on the whole song. As a default, we use `5` s in our paper. The option `--frame_rate` refers to the frame rate of frame-level annotations. As a default, we use `49.8` fps, which is the frame rate of wav2vec 2.0 features.
 
 After running this script, the file organization for MIR-ST500 should be:
 ```
@@ -85,6 +86,7 @@ After running this script, the file organization for N20EMv2 should be:
 ├── data
     ├── song1
         ├── vocals.wav
+        ├── video_50fps.npy
         ├── note_anno.json
         ├── audio_anno
             ├── 49.8fps
@@ -94,10 +96,26 @@ After running this script, the file organization for N20EMv2 should be:
 ├── annotations.json
 ```
 
+The resulted csv files are save in the same root folder: 
+```
+├── data
+    ├── dur_<duration>
+        ├── mir_st500_train.csv
+        ├── mir_st500_test.csv
+        ├── n20emv2_train.csv
+        ├── n20emv2_valid.csv
+        ├── n20emv2_test.csv
+        ├── ismir2014.csv
+        ├── tonas.csv
+        ├── mix_train.csv
+├── prepare_n20emv2.py
+├── prepare_benchmarks.py
+```
+
 ## How to run
 We provide basic runnning scripts for those who intend to follow our research. You can change the hyperparameters or even the types of self-supervised-learning (SSL) models in your own project. To reproduce `ours variant 2` in our paper, run:
 ```
-CUDA_VISIBLE_DEVICES=0,1 python train_audio_ssl.py hparams/train_audio_ssl.yaml --data_parallel_backend --mix_data True --attempt 1 --dur_threshold 5 --linear_probe_epochs 2 --number_of_epochs 10 --ssl_model wav2vec2-large-lv60
+CUDA_VISIBLE_DEVICES=0,1 python train_audio_ssl.py hparams/train_audio_ssl.yaml --data_parallel_backend --mix_data True --data_folder /path/to/N20EMv2 --attempt 1 --dur_threshold 5 --linear_probe_epochs 2 --number_of_epochs 10 --ssl_model wav2vec2-large-lv60
 ```
 The option `--mix_data` refers to whether to mix the training data of MIR_ST500 and N20EMv2. If `False`, only N20EMv2 is used during training. The option `--linear_probe_epochs` refers to the number of epochs for linear probing in our paper. The option `--ssl_model` refers to the self-supervised-learning (SSL) model we used. 
 

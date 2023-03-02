@@ -1,5 +1,5 @@
 # ################################
-# Model: wav2vec2 + Linear
+# Model: avhubert + Linear
 # Authors: Xiangming Gu 2022
 # ################################
 
@@ -8,44 +8,33 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 attempt: 1
 dur_threshold: 5
-mix_data: True
-ssl_model: wav2vec2-large-lv60
-output_folder: !ref results/<ssl_model>_mix<mix_data>/train_audio_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
+frame_rate: 50
+sample_rate: 50
+output_folder: !ref results/AVHuBERT/train_video_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
 save_folder: !ref <output_folder>/save
-csv_folder: !ref data/dur_<dur_threshold>s
+csv_folder: !ref data/frame_rate<frame_rate>/dur_<dur_threshold>s
 train_log: !ref <output_folder>/train_log.txt
 
-# URL for the biggest Fairseq english data2vec model.
-wav2vec2_hub: !ref facebook/<ssl_model>
-wav2vec2_local: !ref ssl_model/<ssl_model>
-
 # Data files
-data_folder: !PLACEHOLDER # e,g./path/to/N20EMv2
+data_folder: !PLACEHOLDER # e,g./path/to/DSing
 # noise/ris dataset will automatically be downloaded
 data_folder_rirs: !ref <data_folder>
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <csv_folder>/n20em_train.csv
-mix_csv: !ref <csv_folder>/mix_train.csv
 valid_csv: !ref <csv_folder>/n20em_valid.csv
 test_csv:
    - !ref <csv_folder>/n20em_test.csv
    - !ref <csv_folder>/n20em_valid.csv
-   - !ref <csv_folder>/mir_st500_test.csv
-   - !ref <csv_folder>/tonas.csv
-   - !ref <csv_folder>/ismir2014.csv
 
-noise_type: babble
-snr_db: -10
-add_noise: False
 # Training parameters
 number_of_epochs: 10
 lr: 0.0003
-lr_wav2vec: 0.00005
+lr_encoder: 0.00005
 sorting: ascending
 auto_mix_prec: False
-sample_rate: 16000
-frame_rate: 49.8
 linear_prob_epochs: 2
+
+split_noise: False
 pretrain: False
 pretrain_folder: ../pretrain_model
 save_model: False
@@ -55,6 +44,7 @@ save_model_folder: ../save_model
 onset_threshold: 0.4
 offset_threshold: 0.5
 onset_tolerance: 0.05
+offset_tolerance: 0.05
 pitch_tolerance: 50
 
 # With data_parallel batch_size is split into N jobs
@@ -62,23 +52,22 @@ pitch_tolerance: 50
 # Must be 3 per GPU to fit 32GB of VRAM
 batch_size: 8
 test_batch_size: 1
-num_workers: 8
 
 # Dataloader options
 train_dataloader_opts:
    batch_size: !ref <batch_size>
-   num_workers: !ref <num_workers>
+   num_workers: 8
 
 valid_dataloader_opts:
    batch_size: !ref <test_batch_size>
-   num_workers: !ref <num_workers>
+   num_workers: 8
 
 test_dataloader_opts:
    batch_size: !ref <test_batch_size>
-   num_workers: !ref <num_workers>
+   num_workers: 8
 
 # Model parameters
-freeze_wav2vec: False
+freeze_encoder: False
 
 # Outputs
 pitch_octave_num: 4
@@ -96,31 +85,20 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 #    sample_rate: !ref <sample_rate>
 #    speeds: [95, 100, 105]
 
-wav2vec2: !new:nets.huggingface_interface.HuggingFaceWav2Vec2
-   source: !ref <wav2vec2_hub>
+avhubert_url: https://dl.fbaipublicfiles.com/avhubert/model/lrs3_vox/clean-pretrain/large_vox_iter5.pt
+encoder: !new:fairseq_interface.FairseqAVHubertPretrain
+   pretrained_path: !ref <avhubert_url>
    output_norm: True
-   freeze: !ref <freeze_wav2vec>
-   save_path: !ref <wav2vec2_local> # !ref <save_folder>/wav2vec2_checkpoint
+   freeze: !ref <freeze_encoder>
+   save_path: ssl_model/AVHuBERT/large_vox_iter5.pt
 
-#####
-# Uncomment this block if you prefer to use a Fairseq pretrained model instead
-# of a HuggingFace one. Here, we provide an URL that is obtained from the
-# Fairseq github for the multilingual XLSR.
-#
-# wav2vec2_url: https://dl.fbaipublicfiles.com/fairseq/wav2vec/w2v_large_lv_fsh_swbd_cv.pt
-# wav2vec2: !new:nets.fairseq_interface.FairseqWav2Vec2
-#    pretrained_path: !ref <wav2vec2_url>
-#    output_norm: True
-#    freeze: False
-#    save_path: !ref <wav2vec2_local>
-
-model: !new:speechbrain.nnet.linear.Linear
+head: !new:speechbrain.nnet.linear.Linear
    input_size: !ref <feat_dim>
    n_neurons: !ref <output_neurons>
 
 modules:
-   wav2vec2: !ref <wav2vec2>
-   model: !ref <model>
+   encoder: !ref <encoder>
+   head: !ref <head>
 
 log_softmax: !new:speechbrain.nnet.activations.Softmax
    apply_log: True
@@ -147,22 +125,22 @@ pitch_criterion: !name:speechbrain.nnet.losses.nll_loss
    allowed_len_diff: 3
    label_smoothing: 0.0
 
-model_opt_class: !name:torch.optim.Adadelta
+head_opt_class: !name:torch.optim.Adadelta
    lr: !ref <lr>
    rho: 0.95
    eps: 1.e-8
 
-wav2vec_opt_class: !name:torch.optim.Adam
-   lr: !ref <lr_wav2vec>
+encoder_opt_class: !name:torch.optim.Adam
+   lr: !ref <lr_encoder>
 
-lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+lr_annealing_head: !new:speechbrain.nnet.schedulers.NewBobScheduler
    initial_value: !ref <lr>
    improvement_threshold: 0.0025
    annealing_factor: 0.8
    patient: 0
 
-lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
-   initial_value: !ref <lr_wav2vec>
+lr_annealing_encoder: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr_encoder>
    improvement_threshold: 0.0025
    annealing_factor: 0.9
    patient: 0
@@ -171,10 +149,10 @@ lr_annealing_wav2vec: !new:speechbrain.nnet.schedulers.NewBobScheduler
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
    checkpoints_dir: !ref <save_folder>
    recoverables:
-      wav2vec2: !ref <wav2vec2>
-      model: !ref <model>
-      scheduler_model: !ref <lr_annealing_model>
-      scheduler_wav2vec: !ref <lr_annealing_wav2vec>
+      encoder: !ref <encoder>
+      head: !ref <head>
+      scheduler_head: !ref <lr_annealing_head>
+      scheduler_encoder: !ref <lr_annealing_encoder>
       counter: !ref <epoch_counter>
 
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger

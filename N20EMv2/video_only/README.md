@@ -1,0 +1,63 @@
+# Video-only Singing Voice Transcription with N20EMv2 dataset
+This sub-project contains recipes for trianing video-only SVT system using N20EMv2 dataset.
+
+## Prerequisites
+1. Before running our scripts, you need to download, preprocess and save the N20EMv2 properly. For your convenience, we already crop the video clips of lip movements without releasing the identity of each subject.
+
+The file organization for N20EMv2 should be:
+```
+/path/to/N20EMv2
+├── data
+    ├── song1
+        ├── vocals.wav
+        ├── video_50fps.npy
+    ├── song2
+    ├── ...
+├── annotations.json
+```
+
+
+2. Prepare N20EMv2 dataset, run:
+```
+python prepare_n20emv2.py --duration <duration> --frame_rate 50 --n20emv2 /path/to/n20emv2
+```
+
+The option `--duration` refers to the length of utterances during the training. To parallelize the training, we split the whole song into short utterances during the training. The evaluation is conducted on the whole song. As a default, we use `5` s, which is the same as audio-only singing voice transcription. The option `--frame_rate` refers to the frame rate of frame-level annotations. As a default, we use `50` fps, which is also the frame rate of video input.
+
+After running this script, the file organization for N20EMv2 should be:
+```
+/path/to/N20EMv2
+├── data
+    ├── song1
+        ├── vocals.wav
+        ├── video_50fps.npy
+        ├── note_anno.json
+        ├── video_anno
+            ├── 50fps
+                ├── video_frame_anno.npy
+    ├── song2
+    ├── ...
+├── annotations.json
+```
+
+The resulted csv files are save in the same root folder: 
+```
+├── data
+    ├── frame_rate<frame_rate>
+        ├── dur_<duration>
+            ├── n20emv2_train.csv
+            ├── n20emv2_valid.csv
+            ├── n20emv2_test.csv
+├── prepare_n20emv2.py
+```
+
+## How to run
+We provide basic runnning scripts for those who intend to follow our research. You can change the hyperparameters or even the types of self-supervised-learning (SSL) models in your own project. To reproduce video-only sing voice transcription model in our paper, run:
+```
+CUDA_VISIBLE_DEVICES=0,1 python train_video_ssl.py hparams/train_video_ssl.yaml --data_parallel_backend --data_folder /path/to/N20EMv2 --attempt 1 --dur_threshold 5 --linear_probe_epochs 2 --number_of_epochs 10
+```
+The option `--linear_probe_epochs` refers to the number of epochs for linear probing in our paper. We provide the config for AVHuBERT pretrained on audio-visual speech data. If you intend to use the config for AVHuBERT pretrained and finetuned on audio-visual speech data, please rewrite `hparams/train_video_ssl.yaml` to change the model.
+
+
+## Results
+We provide our video-only sing voice transcription model in the paper.
