@@ -56,7 +56,10 @@ We provide basic runnning scripts for those who intend to follow our research. Y
 ```
 CUDA_VISIBLE_DEVICES=0,1 python train_video_ssl.py hparams/train_video_ssl.yaml --data_parallel_backend --data_folder /path/to/N20EMv2 --attempt 1 --dur_threshold 5 --linear_probe_epochs 2 --number_of_epochs 10
 ```
-The option `--linear_probe_epochs` refers to the number of epochs for linear probing in our paper. We provide the config for AVHuBERT pretrained on audio-visual speech data. If you intend to use the config for AVHuBERT pretrained and finetuned on audio-visual speech data, please rewrite `hparams/train_video_ssl.yaml` to change the model.
+The option `--linear_probe_epochs` refers to the number of epochs for linear probing in our paper. We provide the config for AVHuBERT pretrained on audio-visual speech data. If you intend to use the config for AVHuBERT pretrained and finetuned on audio-visual speech data, please rewrite `hparams/train_video_ssl.yaml` to change the model. Although we use data parallel (DP) in our experiments, we also provide distributed data parallel (DDP) version (remember to change the `batch_size` to avoid OOM):
+```
+CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 train_video_ssl.py hparams/train_video_ssl.yaml --distributed_launch --distributed_backend='nccl' --find_unused_parameters --data_folder /path/to/N20EMv2 --attempt 1 --dur_threshold 5 --linear_probe_epochs 2 --number_of_epochs 10
+```
 
 
 ## Results
