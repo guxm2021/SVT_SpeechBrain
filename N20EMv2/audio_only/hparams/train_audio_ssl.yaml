@@ -8,7 +8,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 attempt: 1
 dur_threshold: 5
-mix_data: True
+mix_train: True
 ssl_model: wav2vec2-large-lv60
 output_folder: !ref results/<ssl_model>_mix<mix_data>/train_audio_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
 save_folder: !ref <output_folder>/save
@@ -25,7 +25,7 @@ data_folder: !PLACEHOLDER # e,g./path/to/N20EMv2
 data_folder_rirs: !ref <data_folder>
 ckpt_interval_minutes: 25 # save checkpoint every N min
 train_csv: !ref <csv_folder>/n20em_train.csv
-mix_csv: !ref <csv_folder>/mix_train.csv
+mix_train_csv: !ref <csv_folder>/mix_train.csv
 valid_csv: !ref <csv_folder>/n20em_valid.csv
 test_csv:
    - !ref <csv_folder>/n20em_test.csv
