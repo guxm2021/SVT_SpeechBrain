@@ -96,7 +96,7 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 #    sample_rate: !ref <sample_rate>
 #    speeds: [95, 100, 105]
 
-wav2vec2: !new:nets.huggingface_interface.HuggingFaceWav2Vec2
+wav2vec2: !new:huggingface_interface.HuggingFaceWav2Vec2
    source: !ref <wav2vec2_hub>
    output_norm: True
    freeze: !ref <freeze_wav2vec>
