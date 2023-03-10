@@ -136,6 +136,7 @@ log_softmax: !new:speechbrain.nnet.activations.Softmax
 
 onset_positive_weight: 15.0
 offset_positive_weight: 1.0
+gender_positive_weight: 1.0
 onset_criterion: !name:speechbrain.nnet.losses.bce_loss
    reduction: mean
    allowed_len_diff: 3

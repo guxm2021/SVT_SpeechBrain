@@ -20,5 +20,5 @@ class DiscNet(nn.Module):
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
         x = torch.relu(self.fc4(x))
-        x = torch.relu(self.fc5(x))
+        x = self.fc5(x)
         return x
