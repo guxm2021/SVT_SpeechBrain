@@ -10,7 +10,7 @@ attempt: 1
 dur_threshold: 5
 mix_data: True
 ssl_model: wav2vec2-large-lv60
-output_folder: !ref results/ssl_model_mix<mix_data>/train_dann_fair_dur<dur_threshold>_attempt<attempt>/<seed>
+output_folder: !ref results/ssl_model_mix<mix_data>/train_cdann_fair_dur<dur_threshold>_attempt<attempt>/<seed>
 save_folder: !ref <output_folder>/save
 csv_folder: !ref data/dur_<dur_threshold>s
 train_log: !ref <output_folder>/train_log.txt
@@ -126,7 +126,7 @@ discriminator: !new:discriminator.DiscNet
    input_dim: !ref <feat_dim>
    hidden_dim: !ref <feat_dim>
    output_dim: 2
-   cond: False
+   cond: True
 
 modules:
    wav2vec2: !ref <wav2vec2>

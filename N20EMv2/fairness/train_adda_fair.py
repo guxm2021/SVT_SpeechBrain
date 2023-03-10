@@ -75,20 +75,6 @@ class SVT(sb.Brain):
         pitch_class_log_prob = self.hparams.log_softmax(pitch_class_logits)
         pitch_loss = self.hparams.pitch_criterion(pitch_class_log_prob, pitch_class_gt, length=wav_lens)
 
-        # Compute Gender Loss
-        gender_pred = self.modules.discriminator(feats).squeeze(dim=-1)  # (B, T, 1) -> (B, T)
-        gender_pred = torch.sigmoid(gender_pred) # (B, T)
-        gender_female = gender_pred[genders == 0]                   # male for 1 and female for 0
-        # Add Masks
-        mask = torch.ones_like(gender_pred)   # (B, T)
-        length_mask = length_to_mask(
-            wav_lens * gender_pred.shape[1], max_len = gender_pred.shape[1],
-        )
-        length_mask = length_mask.type(mask.dtype)
-        mask *= length_mask
-        loss_gen = - torch.log(gender_female + 1e-10) * mask[genders == 0]
-        loss_gen = loss_gen.mean()
-
         # Compute Total Loss for classification
         loss_cls = onset_loss + offset_loss + octave_loss + pitch_loss
 
@@ -171,7 +157,24 @@ class SVT(sb.Brain):
 
             # update last_utter
             self.last_utter = cur_utter
-        return loss_cls, loss_gen
+        
+        if stage == sb.Stage.TRAIN:
+            # Compute Gender Loss
+            gender_pred = self.modules.discriminator(feats).squeeze(dim=-1)  # (B, T, 1) -> (B, T)
+            gender_pred = torch.sigmoid(gender_pred) # (B, T)
+            gender_female = gender_pred[genders == 0]                   # male for 1 and female for 0
+            # Add Masks
+            mask = torch.ones_like(gender_pred)   # (B, T)
+            length_mask = length_to_mask(
+                wav_lens * gender_pred.shape[1], max_len = gender_pred.shape[1],
+            )
+            length_mask = length_mask.type(mask.dtype)
+            mask *= length_mask
+            loss_gen = - torch.log(gender_female + 1e-10) * mask[genders == 0]
+            loss_gen = loss_gen.mean()
+            return loss_cls, loss_gen
+        else:
+            return loss_cls
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
@@ -225,7 +228,10 @@ class SVT(sb.Brain):
         """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         with torch.no_grad():
-            loss_cls, _ = self.compute_objectives(predictions, batch, stage=stage)
+            if stage == sb.Stage.TRAIN:
+                loss_cls, _ = self.compute_objectives(predictions, batch, stage=stage)
+            else:
+                loss_cls = self.compute_objectives(predictions, batch, stage=stage)
         return loss_cls.detach()
     
     def on_evaluate_start(self, max_key=None, min_key=None):

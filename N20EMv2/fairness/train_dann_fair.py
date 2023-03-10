@@ -34,23 +34,23 @@ class SVT(sb.Brain):
         # Forward pass
         feats = self.modules.wav2vec2(wavs)   # (batch, frame, feat_dim)
 
+        # Compute predictions
+        logits = self.modules.model(feats)      # (batch, frame, 2+pitch_class+pitch_octave+2)
+
+        return logits, feats, wav_lens  # return wav2vec 2.0 features
+
+    def compute_objectives(self, predictions, batch, stage):
+        # predictions
+        logits, feats, wav_lens = predictions
+
         # Compute outputs
         pitch_octave_num = self.hparams.pitch_octave_num
         pitch_class_num = self.hparams.pitch_class_num
-
-        # Compute predictions
-        logits = self.modules.model(feats)      # (batch, frame, 2+pitch_class+pitch_octave+2)
         onset_logits = logits[:, :, 0]
         offset_logits = logits[:, :, 1]
         pitch_out = logits[:, :, 2:]
         pitch_octave_logits = pitch_out[:, :, 0:pitch_octave_num+1]
         pitch_class_logits = pitch_out[:, :, pitch_octave_num+1:]
-
-        return onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, feats, wav_lens  # return wav2vec 2.0 features
-
-    def compute_objectives(self, predictions, batch, stage):
-        # predictions
-        onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, feats, wav_lens = predictions
         
         # ground truth
         ids = batch.id
@@ -74,12 +74,6 @@ class SVT(sb.Brain):
         octave_loss = self.hparams.octave_criterion(pitch_octave_log_prob, pitch_octave_gt, length=wav_lens)
         pitch_class_log_prob = self.hparams.log_softmax(pitch_class_logits)
         pitch_loss = self.hparams.pitch_criterion(pitch_class_log_prob, pitch_class_gt, length=wav_lens)
-
-        # Compute Gender Loss
-        gender_pred = self.modules.discriminator(feats)         # logits, (B, T, 2)
-        gender_positive_weight = torch.tensor([self.hparams.gender_positive_weight,], device=self.device)
-        genders_gt = genders.unsqueeze(dim=1).expand(gender_pred.shape[0], gender_pred.shape[1])  # male: 1, female, 0
-        loss_gen = self.hparams.gender_criterion(gender_pred, genders_gt, length=wav_lens, pos_weight=gender_positive_weight)
 
         # Compute Total Loss for classification
         loss_cls = onset_loss + offset_loss + octave_loss + pitch_loss
@@ -163,19 +157,28 @@ class SVT(sb.Brain):
 
             # update last_utter
             self.last_utter = cur_utter
-        return loss_cls, loss_gen
+        
+        if stage == sb.Stage.TRAIN:
+            # Compute Gender Loss
+            gender_pred = self.modules.discriminator(feats, logits)         # logits, (B, T, 2)
+            gender_positive_weight = torch.tensor([self.hparams.gender_positive_weight,], device=self.device)
+            genders_gt = genders.unsqueeze(dim=1).expand(gender_pred.shape[0], gender_pred.shape[1])  # male: 1, female, 0
+            loss_gen = self.hparams.gender_criterion(gender_pred, genders_gt, length=wav_lens, pos_weight=gender_positive_weight)
+            return loss_cls, loss_gen
+        else:
+            return loss_cls
 
     def fit_batch(self, batch):
         """Train the parameters given a single batch in input"""
         predictions = self.compute_forward(batch, sb.Stage.TRAIN)
-        onset_logits, offset_logits, pitch_octave_logits, pitch_class_logits, feats, wav_lens = predictions
+        logits, feats, wav_lens = predictions
 
         ################## Discriminator ##################
         self.set_requires_grad(self.modules.discriminator, True)
         # When updating the discriminator, we need to detach the gradient of feats
         genders = batch.gender
         genders = genders.long()
-        gender_pred = self.modules.discriminator(feats.detach())         # logits, (B, T, 2)
+        gender_pred = self.modules.discriminator(feats.detach(), logits.detach())         # logits, (B, T, 2)
         gender_positive_weight = torch.tensor([self.hparams.gender_positive_weight,], device=self.device)
         genders_gt = genders.unsqueeze(dim=1).expand(gender_pred.shape[0], gender_pred.shape[1])  # male: 1, female, 0
         loss_dis = self.hparams.gender_criterion(gender_pred, genders_gt, length=wav_lens, pos_weight=gender_positive_weight)
@@ -207,7 +210,10 @@ class SVT(sb.Brain):
         """Computations needed for validation/test batches"""
         predictions = self.compute_forward(batch, stage=stage)
         with torch.no_grad():
-            loss_cls, _ = self.compute_objectives(predictions, batch, stage=stage)
+            if stage == sb.Stage.TRAIN:
+                loss_cls, _ = self.compute_objectives(predictions, batch, stage=stage)
+            else:
+                loss_cls = self.compute_objectives(predictions, batch, stage=stage)
         return loss_cls.detach()
     
     def on_evaluate_start(self, max_key=None, min_key=None):
