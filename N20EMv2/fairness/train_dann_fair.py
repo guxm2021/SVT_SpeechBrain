@@ -76,18 +76,10 @@ class SVT(sb.Brain):
         pitch_loss = self.hparams.pitch_criterion(pitch_class_log_prob, pitch_class_gt, length=wav_lens)
 
         # Compute Gender Loss
-        gender_pred = self.modules.discriminator(feats).squeeze(dim=-1)  # (B, T, 1) -> (B, T)
-        gender_pred = torch.sigmoid(gender_pred) # (B, T)
-        gender_female = gender_pred[genders == 0]                   # male for 1 and female for 0
-        # Add Masks
-        mask = torch.ones_like(gender_pred)   # (B, T)
-        length_mask = length_to_mask(
-            wav_lens * gender_pred.shape[1], max_len = gender_pred.shape[1],
-        )
-        length_mask = length_mask.type(mask.dtype)
-        mask *= length_mask
-        loss_gen = - torch.log(gender_female + 1e-10) * mask[genders == 0]
-        loss_gen = loss_gen.mean()
+        gender_pred = self.modules.discriminator(feats)         # logits, (B, T, 2)
+        gender_positive_weight = torch.tensor([self.hparams.gender_positive_weight,], device=self.device)
+        genders_gt = genders.unsqueeze(dim=1).expand(gender_pred.shape[0], gender_pred.shape[1])  # male: 1, female, 0
+        loss_gen = self.hparams.gender_criterion(gender_pred, genders_gt, length=wav_lens, pos_weight=gender_positive_weight)
 
         # Compute Total Loss for classification
         loss_cls = onset_loss + offset_loss + octave_loss + pitch_loss
@@ -183,19 +175,10 @@ class SVT(sb.Brain):
         # When updating the discriminator, we need to detach the gradient of feats
         genders = batch.gender
         genders = genders.long()
-        gender_pred = self.modules.discriminator(feats.detach()).squeeze(dim=-1)  # (B, T, 1) -> (B, T)
-        gender_pred = torch.sigmoid(gender_pred)          # (B, T)
-        gender_male = gender_pred[genders == 1] # male for 1 and female for 0
-        gender_female = gender_pred[genders == 0]
-        # Add Masks
-        mask = torch.ones_like(gender_pred)   # (B, T)
-        length_mask = length_to_mask(
-            wav_lens * gender_pred.shape[1], max_len = gender_pred.shape[1],
-        )
-        length_mask = length_mask.type(mask.dtype)
-        mask *= length_mask
-        loss_dis = - torch.log(gender_male + 1e-10) * mask[genders == 1] - torch.log(1 - gender_female + 1e-10) * mask[genders == 0]
-        loss_dis = loss_dis.mean()
+        gender_pred = self.modules.discriminator(feats.detach())         # logits, (B, T, 2)
+        gender_positive_weight = torch.tensor([self.hparams.gender_positive_weight,], device=self.device)
+        genders_gt = genders.unsqueeze(dim=1).expand(gender_pred.shape[0], gender_pred.shape[1])  # male: 1, female, 0
+        loss_dis = self.hparams.gender_criterion(gender_pred, genders_gt, length=wav_lens, pos_weight=gender_positive_weight)
         loss_dis.backward()
         if self.check_gradients(loss_dis):
             self.disc_optimizer.step()
@@ -206,7 +189,7 @@ class SVT(sb.Brain):
         ################## Generator ##################
         self.set_requires_grad(self.modules.discriminator, False)
         loss_cls, loss_gen = self.compute_objectives(predictions, batch, sb.Stage.TRAIN)
-        loss = loss_cls + loss_gen * self.hparams.lambda_adv             # lambda_adv: balancing term for adversarial training
+        loss = loss_cls - loss_gen * self.hparams.lambda_adv             # lambda_adv: balancing term for adversarial training
         loss.backward()
         if self.check_gradients(loss):
             self.wav2vec_optimizer.step()
