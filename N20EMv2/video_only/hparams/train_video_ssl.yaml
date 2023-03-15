@@ -8,6 +8,7 @@ seed: 1986
 __set_seed: !apply:torch.manual_seed [!ref <seed>]
 attempt: 1
 dur_threshold: 5
+overlap: 0
 frame_rate: 50
 sample_rate: 50
 output_folder: !ref results/AVHuBERT/train_video_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
