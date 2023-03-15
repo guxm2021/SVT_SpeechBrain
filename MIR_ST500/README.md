@@ -89,5 +89,5 @@ NOTE: For SSL models, we used `wav2vec2-large-lv60` as the wav2vec 2.0 pretraine
 ## Results
 We provide our trained SVT model of `ours variant 1`[[model link](https://drive.google.com/drive/folders/18IvMt8vrtZewCjCSy6DTPfZzhJw4SI95?usp=sharing)] in the paper.
 <p align="center">
-<img src="../assets/results.png" alt="" data-canonical-src="../results/AV_SVT.png" width="100%"/>
+<img src="../assets/results.png" alt="" data-canonical-src="../assets/results.png width="100%"/>
 </p>

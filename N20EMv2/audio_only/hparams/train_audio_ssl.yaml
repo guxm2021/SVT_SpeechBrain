@@ -10,7 +10,7 @@ attempt: 1
 dur_threshold: 5
 mix_train: True
 ssl_model: wav2vec2-large-lv60
-output_folder: !ref results/<ssl_model>_mix<mix_data>/train_audio_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
+output_folder: !ref results/<ssl_model>_mix<mix_train>/train_audio_ssl_dur<dur_threshold>_attempt<attempt>/<seed>
 save_folder: !ref <output_folder>/save
 csv_folder: !ref data/dur_<dur_threshold>s
 train_log: !ref <output_folder>/train_log.txt

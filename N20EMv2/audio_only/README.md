@@ -125,4 +125,14 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 t
 NOTE: For SSL models, we used `wav2vec2-large-lv60` as the wav2vec 2.0 pretrained on speech data and `wav2vec2-large-960h-lv60-self` as the wav2vec 2.0 pretrained and finetuned on speech data. To facilitate the follow-up research, our repo supports the following SSL models: [wav2vec2](https://arxiv.org/abs/2006.11477), [HuBERT](https://arxiv.org/abs/2106.07447), [data2vec](https://arxiv.org/abs/2202.03555), [WavLM](https://arxiv.org/abs/2110.13900). Please find the checkpoint name in [Huggingface](https://huggingface.co/models).
 
 ## Results
-We provide our trained SVT model of `ours variant 2` in the paper.
+We provide our trained SVT model of `ours variant 2`[[model link](https://drive.google.com/drive/folders/1FZFWf0JXDs2Esmu9GZqxmp5Wev5AclWU?usp=share_link))] in the paper.
+
+Results on Benchmark datasets for SVT task:
+<p align="center">
+<img src="../../assets/results.png" alt="" data-canonical-src="../../assets/results.png" width="100%"/>
+</p>
+
+Results on N20EMv2 dataset for SVT task:
+<p align="center">
+<img src="../../assets/results2.png" alt="" data-canonical-src="../../assets/results2.png" width="60%"/>
+</p>

@@ -50,15 +50,15 @@ def prepare_frame_anno(folder, frame_rate=49.8):
         np.save(npy_path, frame_label)
 
 
-def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5, gender_file=None):
+def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5):
     """
     This function creates csv files for speechbrain to process, dur_thrd is the threshold for the duration
     """
 
     # initialize the csv lines
-    csv_train_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno", "sex"]]
-    csv_valid_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno", "sex"]]
-    csv_test_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno", "sex"]]
+    csv_train_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno"]]
+    csv_valid_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno"]]
+    csv_test_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno"]]
     # load the annotations
     json_file = os.path.join(folder, "annotations.json")
     folder_data = os.path.join(folder, "data")
@@ -66,10 +66,6 @@ def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5, gender_file=Non
     with open(json_file) as f:
         annotations = json.load(f)
     f.close()
-    # open gender file
-    if gender_file is not None:
-        with open(gender_file) as f:
-            gender_info = json.load(f)
     # traverse the whole dataset
     for entry in tqdm(annotations.keys()):
         split = annotations[entry]["split"]
@@ -86,14 +82,13 @@ def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5, gender_file=Non
         utter_num = round(duration / dur_thrd)
         for i in range(1, utter_num+1):
             ID = entry + "_" + str(i)
-            gender = gender_info[entry]['gender'] if gender_file is not None else ""
             if i == utter_num:
                 dur = duration - (utter_num - 1) * dur_thrd
                 assert 0 < dur <= dur_thrd * 3 / 2
             else:
                 dur = dur_thrd
             csv_line = [
-                ID, str(dur), audio_path, str(i), str(utter_num), anno_path, song_anno_path, gender
+                ID, str(dur), audio_path, str(i), str(utter_num), anno_path, song_anno_path,
             ]
             if split == "train":
                 csv_train_lines.append(csv_line)
@@ -128,12 +123,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=5, help="the threshold for duration")
     parser.add_argument("--frame_rate", type=float, default=49.8, help="The frame-rate for SSL models")
-    parser.add_argument("--n20emv2", type=str, default="/path/to/n20emv2", help="The path to save N20EMv2 dataset")
-    parser.add_argument("--gender_file", type=str, default="/path/to/n20emv2/gender.json", help="The path to gender information")
+    parser.add_argument("--n20emv2", type=str, default="/path/to/N20EMv2", help="The path to save N20EMv2 dataset")
     args = parser.parse_args()
     
     prepare_frame_anno(folder=args.n20emv2, frame_rate=args.frame_rate)
-    prepare_csv_n20emv2(folder=args.n20emv2, dur_thrd=args.duration, gender_file=args.gender_file)
+    prepare_csv_n20emv2(folder=args.n20emv2, dur_thrd=args.duration)
     save_folder = os.path.join("./data", "dur_" + str(args.duration) + "s")
     
     merge_files = ["mir_st500_train.csv", "n20em_train.csv"]
