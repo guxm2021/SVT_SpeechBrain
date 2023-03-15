@@ -101,11 +101,14 @@ def prepare_frame_anno(gt_file, folder, frame_rate=49.8):
         np.save(npy_path, frame_label)
         
 
-def prepare_csv_benchmarks(folder, save_path, dur_thrd=5):
+def prepare_csv_benchmarks(folder, save_path, dur_thrd=5, gender_file=None):
     """
     This function creates the csv file of dataset for speechbrain with duration threshold
     """
-    csv_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno"]]
+    csv_lines = [["ID", "duration", "wav", "utter_id", "utter_num", "frame_anno", "song_anno", "sex"]]
+    if gender_file is not None:
+        with open(gender_file) as f:
+            gender_info = json.load(f)
     for dir in tqdm(os.listdir(folder)):
         audio_path = os.path.join(folder, dir, "vocals.wav")
         anno_path = os.path.join(folder, dir, "frame_anno.npy")
@@ -119,13 +122,14 @@ def prepare_csv_benchmarks(folder, save_path, dur_thrd=5):
         utter_num = round(duration / dur_thrd)
         for i in range(1, utter_num+1):
             ID = dir + "_" + str(i)
+            gender = gender_info[dir] if gender_file is not None else ""
             if i == utter_num:
                 dur = duration - (utter_num - 1) * dur_thrd
                 assert 0 < dur <= dur_thrd * 3 / 2
             else:
                 dur = dur_thrd
             csv_line = [
-                ID, str(dur), audio_path, str(i), str(utter_num), anno_path, song_anno_path,
+                ID, str(dur), audio_path, str(i), str(utter_num), anno_path, song_anno_path, gender
             ]
             csv_lines.append(csv_line)
     
@@ -157,11 +161,11 @@ def prepare_all_SVT_datasets(args, save_folder="./data"):
     # Step II: prepare csv files
 
     # prepare MIR-ST500
-    prepare_csv_benchmarks(folder=os.path.join(args.mir_st500, "wav16kHz", "train"), save_path=os.path.join(csv_folder, "mir_st500_train.csv"), dur_thrd=dur_thrd)
-    prepare_csv_benchmarks(folder=os.path.join(args.mir_st500, "wav16kHz", "test"), save_path=os.path.join(csv_folder, "mir_st500_test.csv"), dur_thrd=dur_thrd)
+    prepare_csv_benchmarks(folder=os.path.join(args.mir_st500, "wav16kHz", "train"), save_path=os.path.join(csv_folder, "mir_st500_train.csv"), dur_thrd=dur_thrd, gender_file=args.mir_st500_gender_file)
+    prepare_csv_benchmarks(folder=os.path.join(args.mir_st500, "wav16kHz", "test"), save_path=os.path.join(csv_folder, "mir_st500_test.csv"), dur_thrd=dur_thrd, gender_file=args.mir_st500_gender_file)
 
     # prepare ISMIR2014 dataset
-    prepare_csv_benchmarks(folder=os.path.join(args.ismir, "wav16kHz"), save_path=os.path.join(csv_folder, "ismir2014.csv"), dur_thrd=dur_thrd)
+    prepare_csv_benchmarks(folder=os.path.join(args.ismir, "wav16kHz"), save_path=os.path.join(csv_folder, "ismir2014.csv"), dur_thrd=dur_thrd, gender_file=args.ismir_gender_file)
 
     # prepare TONAS dataset
     prepare_csv_benchmarks(folder=os.path.join(args.tonas, "wav16kHz"), save_path=os.path.join(csv_folder, "tonas.csv"), dur_thrd=dur_thrd)
@@ -173,7 +177,9 @@ if __name__ == "__main__":
     parser.add_argument("--duration", type=int, default=5, help="The threshold to split the songs")
     parser.add_argument("--frame_rate", type=float, default=49.8, help="The frame-rate for SSL models")
     parser.add_argument("--mir_st500", type=str, default="/path/to/MIR_ST500", help="The path to save MIR-ST500 dataset")
+    parser.add_argument("--mir_st500_gender_file", type=str, default="/path/to/MIR_ST500/gender.json", help="The path to gender infomation for MIR-ST500 dataset")
     parser.add_argument("--ismir", type=str, default="/path/to/ISMIR2014", help="The path to save ISMIR2014 dataset")
+    parser.add_argument("--ismir_gender_file", type=str, default="/path/to/ISMIR2014/gender.json", help="The path to gender infomation for ISMIR2014 dataset")
     parser.add_argument("--tonas", type=str, default="/path/to/TONAS", help="The path to save TONAS dataset")
     args = parser.parse_args()
 
