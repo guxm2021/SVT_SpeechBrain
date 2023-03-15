@@ -497,8 +497,8 @@ def dataio_prepare(hparams):
     sample_rate = hparams["sample_rate"]
     frame_rate = hparams["frame_rate"]
     # 2. Define audio pipeline:
-    @sb.utils.data_pipeline.takes("wav", "utter_id", "utter_num")
-    @sb.utils.data_pipeline.provides("sig")
+    @sb.utils.data_pipeline.takes("wav", "utter_id", "utter_num", "sex")
+    @sb.utils.data_pipeline.provides("sig", "gender")
     def audio_pipeline(wav, utter_id, utter_num):
         sig = sb.dataio.dataio.read_audio(wav)
         assert len(sig.shape) == 1
@@ -514,7 +514,8 @@ def dataio_prepare(hparams):
             num_sample1 = round(num_sample1)
             num_sample2 = round(num_sample2)
             sig = sig[num_sample1:num_sample2]
-        return sig
+        gender2int = {"female": 0, "male": 1, "child": 2, "": 3}
+        return sig, gender2int[sex]
 
     sb.dataio.dataset.add_dynamic_item(datasets, audio_pipeline)
 
