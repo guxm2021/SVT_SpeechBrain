@@ -23,6 +23,7 @@ The following figure shows the training procedure of single-modaly singing voice
 Install Anaconda and create the environment with python 3.8.12, pytorch 1.9.0 and cuda 11.1:
 ```
 conda create -n svt python=3.8.12
+conda activate svt
 pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
