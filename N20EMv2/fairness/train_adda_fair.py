@@ -197,8 +197,12 @@ class SVT(sb.Brain):
         )
         length_mask = length_mask.type(mask.dtype)
         mask *= length_mask
-        loss_dis = - (torch.log(gender_male + 1e-10) * mask[genders == 1] * self.hparams.gender_positive_weight).mean() \
-                   - (torch.log(1 - gender_female + 1e-10) * mask[genders == 0]).mean()
+        loss_male, loss_female = torch.tensor(0), torch.tensor(0)
+        if gender_male.shape[0]:
+            loss_male = - (torch.log(gender_male + 1e-10) * mask[genders == 1] * self.hparams.gender_positive_weight).mean()
+        if gender_female.shape[0]:
+            loss_female = - (torch.log(1 - gender_female + 1e-10) * mask[genders == 0]).mean()
+        loss_dis = loss_male + loss_female
         # loss_dis = loss_dis.mean()
         loss_dis.backward()
         if self.check_gradients(loss_dis):
