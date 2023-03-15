@@ -499,7 +499,7 @@ def dataio_prepare(hparams):
     # 2. Define audio pipeline:
     @sb.utils.data_pipeline.takes("wav", "utter_id", "utter_num", "sex")
     @sb.utils.data_pipeline.provides("sig", "gender")
-    def audio_pipeline(wav, utter_id, utter_num):
+    def audio_pipeline(wav, utter_id, utter_num, sex):
         sig = sb.dataio.dataio.read_audio(wav)
         assert len(sig.shape) == 1
         utter_id = int(utter_id)
