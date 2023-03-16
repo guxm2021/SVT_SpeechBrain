@@ -1,0 +1,162 @@
+# ################################
+# Model: wav2vec2 + Linear
+# Authors: Xiangming Gu 2022
+# ################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1986
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+attempt: 1
+dur_threshold: 5
+noise_type: natural
+snr_db: -10
+add_noise: True
+lr: 0.0003
+output_folder: !ref results/audio_visual_rca/<noise_type>/noise_<add_noise>_<noise_type>_<snr_db>db_lr<lr>/<seed>
+save_folder: !ref <output_folder>/save
+csv_folder: !ref data_feat/dur_<dur_threshold>s
+train_log: !ref <output_folder>/train_log.txt
+
+# Data files
+data_folder: !PLACEHOLDER # e,g./path/to/DSing
+# noise/ris dataset will automatically be downloaded
+data_folder_rirs: !ref <data_folder>
+ckpt_interval_minutes: 25 # save checkpoint every N min
+train_csv: !ref <csv_folder>/n20em_train.csv
+valid_csv: !ref <csv_folder>/n20em_valid.csv
+test_csv:
+   - !ref <csv_folder>/n20em_test.csv
+   - !ref <csv_folder>/n20em_valid.csv
+
+# Training parameters
+number_of_epochs: 10
+sorting: ascending
+auto_mix_prec: False
+audio_sample_rate: 49.8
+video_sample_rate: 50
+frame_rate: 49.8
+linear_prob_epochs: 2
+pretrain: True
+pretrain_folder: ../save_model
+
+# Evaluating parameters
+onset_threshold: 0.4
+offset_threshold: 0.5
+onset_tolerance: 0.05
+pitch_tolerance: 50
+
+# With data_parallel batch_size is split into N jobs
+# With DDP batch_size is multiplied by N jobs
+# Must be 3 per GPU to fit 32GB of VRAM
+batch_size: 8
+test_batch_size: 1
+num_workers: 8
+
+# Dataloader options
+train_dataloader_opts:
+   batch_size: !ref <batch_size>
+   num_workers: !ref <num_workers>
+
+valid_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+   num_workers: !ref <num_workers>
+
+test_dataloader_opts:
+   batch_size: !ref <test_batch_size>
+   num_workers: !ref <num_workers>
+
+# Outputs
+pitch_octave_num: 4
+pitch_class_num: 12
+feat_dim: 1024
+output_neurons: 20  # 2+pitch_octave+pitch_class+2
+
+#
+# Functions and classes
+#
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+   limit: !ref <number_of_epochs>
+
+head: !new:speechbrain.nnet.linear.Linear
+   input_size: !ref <feat_dim>
+   n_neurons: !ref <output_neurons>
+
+fusion: !new:fusion.FusionRCA
+
+model: !new:torch.nn.ModuleList
+   - [!ref <fusion>, !ref <head>]
+
+modules:
+   head: !ref <head>
+   fusion: !ref <fusion>
+
+log_softmax: !new:speechbrain.nnet.activations.Softmax
+   apply_log: True
+
+onset_positive_weight: 15.0
+offset_positive_weight: 1.0
+onset_criterion: !name:speechbrain.nnet.losses.bce_loss
+   reduction: mean
+   allowed_len_diff: 3
+   label_smoothing: 0.0
+
+offset_criterion: !name:speechbrain.nnet.losses.bce_loss
+   reduction: mean
+   allowed_len_diff: 3
+   label_smoothing: 0.0
+
+octave_criterion: !name:speechbrain.nnet.losses.nll_loss
+   reduction: mean
+   allowed_len_diff: 3
+   label_smoothing: 0.0
+
+pitch_criterion: !name:speechbrain.nnet.losses.nll_loss
+   reduction: mean
+   allowed_len_diff: 3
+   label_smoothing: 0.0
+
+model_opt_class: !name:torch.optim.Adadelta
+   lr: !ref <lr>
+   rho: 0.95
+   eps: 1.e-8
+
+lr_annealing_model: !new:speechbrain.nnet.schedulers.NewBobScheduler
+   initial_value: !ref <lr>
+   improvement_threshold: 0.0025
+   annealing_factor: 0.8
+   patient: 0
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+   checkpoints_dir: !ref <save_folder>
+   recoverables:
+      model: !ref <model>
+      scheduler_model: !ref <lr_annealing_model>
+      counter: !ref <epoch_counter>
+
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+   save_file: !ref <train_log>
+   precision: 3
+
+onset_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.bce_loss
+        reduction: batch
+        allowed_len_diff: 3
+        label_smoothing: 0.0
+
+offset_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.bce_loss
+        reduction: batch
+        allowed_len_diff: 3
+        label_smoothing: 0.0
+
+octave_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.nll_loss
+        reduction: batch
+        allowed_len_diff: 3
+        label_smoothing: 0.0
+
+pitch_stats: !name:speechbrain.utils.metric_stats.MetricStats
+    metric: !name:speechbrain.nnet.losses.nll_loss
+        reduction: batch
+        allowed_len_diff: 3
+        label_smoothing: 0.0
