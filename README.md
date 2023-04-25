@@ -31,7 +31,7 @@ pip install torch==1.9.1+cu111 torchvision==0.10.1+cu111 torchaudio==0.9.1 -f ht
 
 We run experiments based on [SpeechBrain toolkit](https://github.com/speechbrain/speechbrain). For simiplicity, we remove the original recipes. To install SpeechBrain, run following commands:
 ```
-cd AV_SVT
+cd SVT_SpeechBrain
 pip install -r requirements.txt
 pip install --editable .
 ```
@@ -89,11 +89,11 @@ You may need to create csv files according to our guidance in `<dataset>/<task>`
 
 ## Citation
 ```BibTex
-@article{gu2022deep,
-  title={Deep Audio-Visual Singing Voice Transcription based on Self-Supervised Learning Models},
-  author={Gu, Xiangming and Zeng, Wei, and Zhang, Jianan and Ou Longshen and Wang, Ye},
-  journal={Under Review},
-  year={2023}
+@article{gu2023deep,
+      title={Deep Audio-Visual Singing Voice Transcription based on Self-Supervised Learning Models}, 
+      author={Xiangming Gu and Wei Zeng and Jianan Zhang and Longshen Ou and Ye Wang},
+      journal={arXiv preprint arXiv:2304.12082},
+      year={2023}
 }
 ```
 We borrow the code from [SpeechBrain](https://arxiv.org/pdf/2106.04624.pdf), please also consider citing their works.
@@ -107,4 +107,4 @@ Xiangming Gu*, Longshen Ou*, Danielle Ong, Ye Wang<br>
 
 
 ## License
-AV_SVT is released under the Apache License, version 2.0.
+SVT_SpeechBrain is released under the Apache License, version 2.0.
