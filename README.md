@@ -1,5 +1,5 @@
 # Deep Audio-Visual Singing Voice Transcription based on Self-Supervised Learning Models
-This is the author's official PyTorch implementation for AV_SVT. The paper is under review.
+This is the author's official PyTorch implementation for AV_SVT.
 
 [Deep Audio-Visual Singing Voice Transcription based on Self-Supervised Learning Models]()
 
@@ -104,6 +104,11 @@ We borrow the code from [SpeechBrain](https://arxiv.org/pdf/2106.04624.pdf), ple
 Xiangming Gu*, Longshen Ou*, Danielle Ong, Ye Wang<br>
 *ACM International Conference on Multimedia (ACM MM), 2022, (Oral)*<br>
 [[paper](https://guxm2021.github.io/pdf/ACMMM2022.pdf)][[code](https://github.com/guxm2021/MM_ALT)]
+
+**Elucidate Gender Fairness in Singing Voice Transcription**<br>
+Xiangming Gu, Wei Zeng, Ye Wang <br>
+*ACM International Conference on Multimedia (ACM MM), 2023*<br>
+[[paper](https://guxm2021.github.io/pdf/ACMMM2023.pdf)]
 
 
 ## License
