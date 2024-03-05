@@ -1,5 +1,5 @@
-# Audio-only Singing Voice Transcription with MIR-ST500 dataset
-This sub-project contains recipes for trianing benchmark SVT system using MIR-ST500 dataset.
+# Audio-only Automatic Music Transcription with MIR-ST500 dataset
+This sub-project contains recipes for trianing benchmark AMT system using MIR-ST500 dataset.
 
 ## Prerequisites
 1. Before running our scripts, you need to download, preprocess and save the datasets properly. For polyphonic singing recordings, we use [spleeter](https://github.com/deezer/spleeter) to extract the vocal part. Besides, to meet the requirements of self-supervised-learning models in our project, we resample the audio data into 16 kHz. We provide sample code in `prepare_benchmarks.py`. For the annotations, we save them to a json file. 
@@ -29,7 +29,7 @@ The file organization for ISMIR and TONAS should be:
 ```
 
 
-2. Prepare benchmark SVT datasets including MIR-ST500, TONAS, and ISMIR2014, run:
+2. Prepare benchmark AMT for singing datasets including MIR-ST500, TONAS, and ISMIR2014, run:
 ```
 python prepare_benchmarks.py --duration <duration> --frame_rate 49.8 --mir_st500 /path/to/MIR_ST500 --ismir /path/to/ISMIR2014 --tonas /path/to/TONAS
 ```
@@ -87,7 +87,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 t
 NOTE: For SSL models, we used `wav2vec2-large-lv60` as the wav2vec 2.0 pretrained on speech data and `wav2vec2-large-960h-lv60-self` as the wav2vec 2.0 pretrained and finetuned on speech data. To facilitate the follow-up research, our repo supports the following SSL models: [wav2vec2](https://arxiv.org/abs/2006.11477), [HuBERT](https://arxiv.org/abs/2106.07447), [data2vec](https://arxiv.org/abs/2202.03555), [WavLM](https://arxiv.org/abs/2110.13900). Please find the checkpoint name in [Huggingface](https://huggingface.co/models).
 
 ## Results
-We provide our trained SVT model of `ours variant 1`[[model link](https://drive.google.com/drive/folders/18IvMt8vrtZewCjCSy6DTPfZzhJw4SI95?usp=sharing)] in the paper.
+We provide our trained AMT model of `ours 1`[[model link](https://drive.google.com/drive/folders/18IvMt8vrtZewCjCSy6DTPfZzhJw4SI95?usp=sharing)] in the paper.
 <p align="center">
 <img src="../assets/results.png" alt="" data-canonical-src="../assets/results.png width="100%"/>
 </p>

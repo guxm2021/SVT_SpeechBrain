@@ -1,5 +1,5 @@
 #!/usr/bin/env/python3
-"""Recipe for training a wav2vec-based SVT system with MIR-ST500 dataset
+"""Recipe for training a wav2vec-based AMT system with MIR-ST500 dataset
 The system employs wav2vec 2.0 as its encoder. 
 To run this recipe, do the following:
 > python train_wav2vec2.py hparams/train_wav2vec2.yaml
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 # Define training procedure
-class SVT(sb.Brain):
+class AMT(sb.Brain):
     def compute_forward(self, batch, stage):
         """Forward computations from the waveform batches to the output probabilities."""
         batch = batch.to(self.device)
@@ -511,7 +511,7 @@ if __name__ == "__main__":
     train_data, valid_data, test_datasets = dataio_prepare(hparams)
 
     # Trainer initialization
-    asr_brain = SVT(
+    asr_brain = AMT(
         modules=hparams["modules"],
         hparams=hparams,
         run_opts=run_opts,

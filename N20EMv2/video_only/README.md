@@ -1,5 +1,5 @@
-# Video-only Singing Voice Transcription with N20EMv2 dataset
-This sub-project contains recipes for trianing video-only SVT system using N20EMv2 dataset.
+# Video-only Automatic Music Transcription with N20EMv2 dataset
+This sub-project contains recipes for trianing video-only AMT system using N20EMv2 dataset.
 
 ## Prerequisites
 1. Before running our scripts, you need to download, preprocess and save the N20EMv2 properly. For your convenience, we already crop the video clips of lip movements without releasing the identity of each subject.
@@ -22,7 +22,7 @@ The file organization for N20EMv2 should be:
 python prepare_n20emv2.py --duration <duration> --frame_rate 50 --n20emv2 /path/to/n20emv2
 ```
 
-The option `--duration` refers to the length of utterances during the training. To parallelize the training, we split the whole song into short utterances during the training. The evaluation is conducted on the whole song. As a default, we use `5` s, which is the same as audio-only singing voice transcription. The option `--frame_rate` refers to the frame rate of frame-level annotations. As a default, we use `50` fps, which is also the frame rate of video input.
+The option `--duration` refers to the length of utterances during the training. To parallelize the training, we split the whole song into short utterances during the training. The evaluation is conducted on the whole song. As a default, we use `5` s, which is the same as audio-only automatic music transcription. The option `--frame_rate` refers to the frame rate of frame-level annotations. As a default, we use `50` fps, which is also the frame rate of video input.
 
 After running this script, the file organization for N20EMv2 should be:
 ```
@@ -70,7 +70,7 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 t
 
 
 ## Results
-We provide our video-only sing voice transcription model [[model link](https://drive.google.com/drive/folders/1u82GaLM4AWtfp5VzDHryxCNUZglN0bYe?usp=sharing)] in the paper.
+We provide our video-only automatic music transcription model [[model link](https://drive.google.com/drive/folders/1u82GaLM4AWtfp5VzDHryxCNUZglN0bYe?usp=sharing)] in the paper.
 <p align="center">
-<img src="../../assets/results2.png" alt="" data-canonical-src="../../assets/results2.png" width="60%"/>
+<img src="../../assets/results2.png" alt="" data-canonical-src="../../assets/results2.png" width="100%"/>
 </p>

@@ -1,5 +1,5 @@
 """
-Functions for singing voice transcription
+Functions for automatic music transcription
 
 Authors
 * Xiangming Gu 2022

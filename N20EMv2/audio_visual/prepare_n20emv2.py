@@ -85,7 +85,6 @@ def prepare_csv_n20emv2_feat(folder, csv_folder="./data_feat", dur_thrd=5):
             csv_writer.writerow(line)
 
 if __name__ == "__main__":
-    # prepare_frame_anno(folder="/data1/guxm/svt_datasets/n20em/song_level")
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=5, help="the threshold for duration")
     parser.add_argument("--n20emv2", type=str, default="/path/to/N20EMv2", help="The path to save N20EMv2 dataset")

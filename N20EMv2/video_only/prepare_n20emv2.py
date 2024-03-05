@@ -1,5 +1,5 @@
 """
-Data preparation for datasets of singing voice transcription
+Data preparation for datasets of automatic music transcription
 
 Authors
 * Xiangming Gu 2022

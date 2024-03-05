@@ -1,5 +1,5 @@
 """
-Data preparation for datasets of singing voice transcription
+Data preparation for datasets of automatic music transcription
 
 Authors
 * Xiangming Gu 2022
@@ -135,7 +135,7 @@ def prepare_csv_benchmarks(folder, save_path, dur_thrd=5):
             csv_writer.writerow(line)
 
 
-def prepare_all_SVT_datasets(args, save_folder="./data"):
+def prepare_all_AMT_datasets(args, save_folder="./data"):
     dur_thrd = args.duration
     # create folder
     csv_folder = os.path.join(save_folder, "dur_" + str(dur_thrd) + "s")
@@ -168,7 +168,7 @@ def prepare_all_SVT_datasets(args, save_folder="./data"):
 
 
 if __name__ == "__main__":
-    # prepare all SVT datasets
+    # prepare all AMT datasets
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=5, help="The threshold to split the songs")
     parser.add_argument("--frame_rate", type=float, default=49.8, help="The frame-rate for SSL models")
@@ -177,4 +177,4 @@ if __name__ == "__main__":
     parser.add_argument("--tonas", type=str, default="/path/to/TONAS", help="The path to save TONAS dataset")
     args = parser.parse_args()
 
-    prepare_all_SVT_datasets(args)
+    prepare_all_AMT_datasets(args)

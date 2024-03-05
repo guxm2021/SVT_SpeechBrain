@@ -11,6 +11,7 @@ class RCANet(nn.Module):
             self,
             nhead,
             d_ffn,
+            alpha=0.5,
             d_model=None,
             kdim=None,
             vdim=None,
@@ -28,6 +29,7 @@ class RCANet(nn.Module):
                     d_ffn=d_ffn,
                     nhead=nhead,
                     d_model=d_model,
+                    alpha=alpha,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
@@ -40,6 +42,7 @@ class RCANet(nn.Module):
                     d_ffn=d_ffn,
                     nhead=nhead,
                     d_model=d_model,
+                    alpha=alpha,
                     kdim=kdim,
                     vdim=vdim,
                     dropout=dropout,
@@ -82,6 +85,7 @@ class RCALayer(nn.Module):
             d_ffn,
             nhead,
             d_model,
+            alpha=0.5,
             kdim=None,
             vdim=None,
             dropout=0.0,
@@ -91,7 +95,7 @@ class RCALayer(nn.Module):
             causal=False,
     ):
         super().__init__()
-
+        self.alpha = alpha
         if attention_type == "regularMHA":
             self.self_att = sb.nnet.attention.MultiheadAttention(
                 nhead=nhead,
@@ -100,21 +104,21 @@ class RCALayer(nn.Module):
                 kdim=kdim,
                 vdim=vdim,
             )
-            self.cross_att = sb.nnet.attention.MultiheadAttention(
-                nhead=nhead,
-                d_model=d_model,
-                dropout=dropout,
-                kdim=kdim,
-                vdim=vdim,
-            )
+            # self.cross_att = sb.nnet.attention.MultiheadAttention(
+            #     nhead=nhead,
+            #     d_model=d_model,
+            #     dropout=dropout,
+            #     kdim=kdim,
+            #     vdim=vdim,
+            # )
 
         elif attention_type == "RelPosMHAXL":
             self.self_att = sb.nnet.attention.RelPosMHAXL(
                 d_model, nhead, dropout, mask_pos_future=causal
             )
-            self.cross_att = sb.nnet.attention.RelPosMHAXL(
-                d_model, nhead, dropout, mask_pos_future=causal
-            )
+            # self.cross_att = sb.nnet.attention.RelPosMHAXL(
+            #     d_model, nhead, dropout, mask_pos_future=causal
+            # )
 
         self.pos_ffn = sb.nnet.attention.PositionalwiseFeedForward(
             d_ffn=d_ffn,
@@ -137,6 +141,7 @@ class RCALayer(nn.Module):
     ):
         if self.normalize_before:
             src = self.norm1(src_kv)
+            src_q = self.norm1(src_q)
         else:
             src = src_kv
 
@@ -149,7 +154,7 @@ class RCALayer(nn.Module):
             pos_embs=pos_embs,
         )
 
-        cross_attn_output, _ = self.cross_att(
+        cross_attn_output, _ = self.self_att(
             query=src_q,
             key=src,
             value=src,
@@ -159,7 +164,8 @@ class RCALayer(nn.Module):
         )
 
         # add & norm
-        src = src_kv + self.dropout_self_attn(self_attn_output) + self.dropout_cross_attn(cross_attn_output)
+        # src = src_kv + self.dropout_self_attn(self_attn_output) * self.alpha + self.dropout_cross_attn(cross_attn_output) * (1-self.alpha)
+        src = src_kv + self.dropout_self_attn(self_attn_output) * self.alpha + self.dropout_cross_attn(cross_attn_output) * (1-self.alpha)
         if not self.normalize_before:
             src = self.norm1(src)
 
@@ -178,10 +184,9 @@ class RCALayer(nn.Module):
 
 
 class FusionRCA(nn.Module):
-    def __init__(self, nhead=8, d_ffn=3072, d_model=1024):
+    def __init__(self, alpha=0.5, nhead=8, d_ffn=3072, d_model=1024):
         super().__init__()
-        self.fusion = RCANet(nhead=nhead, 
-                             d_ffn=d_ffn, d_model=d_model)
+        self.fusion = RCANet(alpha=alpha, nhead=nhead, d_ffn=d_ffn, d_model=d_model)
 
     
     def forward(self, audio_feats, video_feats):
