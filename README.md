@@ -1,7 +1,7 @@
 # Automatic Lyric Transcription and Automatic Music Transcription from Multimodal Singing
 This is the author's official PyTorch implementation for our TOMM paper:
 
-[Automatic Lyric Transcription and Automatic Music Transcription from Multimodal Singing]()
+[Automatic Lyric Transcription and Automatic Music Transcription from Multimodal Singing](https://dl.acm.org/doi/10.1145/3651310)
 
 As this paper is a journal extension of our previous paper on [multimodal ALT](https://dl.acm.org/doi/10.1145/3503161.3548411), we only include the code regarding AMT in this repo. Please refer to the [code](https://github.com/guxm2021/MM_ALT) repo for ALT.
 
@@ -108,12 +108,12 @@ We borrow the code from [SpeechBrain](https://arxiv.org/pdf/2106.04624.pdf), ple
 **MM-ALT: A Multimodal Automatic Lyric Transcription System**<br>
 Xiangming Gu*, Longshen Ou*, Danielle Ong, Ye Wang<br>
 *ACM International Conference on Multimedia (ACM MM), 2022, (Oral)*<br>
-[[paper](https://guxm2021.github.io/pdf/ACMMM2022.pdf)][[code](https://github.com/guxm2021/MM_ALT)]
+[[paper](https://dl.acm.org/doi/10.1145/3503161.3548411)][[code](https://github.com/guxm2021/MM_ALT)]
 
 **Elucidate Gender Fairness in Singing Voice Transcription**<br>
 Xiangming Gu, Wei Zeng, Ye Wang <br>
 *ACM International Conference on Multimedia (ACM MM), 2023*<br>
-[[paper](https://guxm2021.github.io/pdf/ACMMM2023.pdf)]
+[[paper](https://dl.acm.org/doi/10.1145/3581783.3612272)]
 
 
 ## License
