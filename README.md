@@ -88,17 +88,18 @@ You may need to create csv files according to our guidance in `<dataset>/<task>`
 
 ```BibTex
 @article{gu2024automatic,
-      title={Automatic Lyric Transcription and Automatic Music Transcription from Multimodal Singing}, 
-      author={Gu, Xiangming and Ou, Longshen and Zeng, Wei and Zhang, Jianan and Wong, Nicholas and Wang, Ye},
-      journal={ACM Transactions on Multimedia Computing, Communications and Applications},
-      year={2024}
+  title={Automatic Lyric Transcription and Automatic Music Transcription from Multimodal Singing}, 
+  author={Gu, Xiangming and Ou, Longshen and Zeng, Wei and Zhang, Jianan and Wong, Nicholas and Wang, Ye},
+  journal={ACM Transactions on Multimedia Computing, Communications and Applications},
+  publisher={ACM New York, NY},
+  year={2024}
 }
-
-@article{gu2023deep,
-  title={Deep audio-visual singing voice transcription based on self-supervised learning models},
-  author={Gu, Xiangming and Zeng, Wei and Zhang, Jianan and Ou, Longshen and Wang, Ye},
-  journal={arXiv preprint arXiv:2304.12082},
-  year={2023}
+@inproceedings{gu2022mm,
+  title={Mm-alt: A multimodal automatic lyric transcription system},
+  author={Gu, Xiangming and Ou, Longshen and Ong, Danielle and Wang, Ye},
+  booktitle={Proceedings of the 30th ACM International Conference on Multimedia},
+  pages={3328--3337},
+  year={2022}
 }
 ```
 We borrow the code from [SpeechBrain](https://arxiv.org/pdf/2106.04624.pdf), please also consider citing their works.
