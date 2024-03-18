@@ -67,7 +67,7 @@ pip install --editable ./
 [ISMIR2014 dataset](https://riuma.uma.es/xmlui/bitstream/handle/10630/8372/298_Paper.pdf?sequence=1) is another evaluation set for AMT for singing. ISMIR2014 has 14 songs sung by children, 13 by male adults and 11 by female adults (38 pop songs, 19 minutes in total duration). 
 
 ### N20EMv2
-N20EMv2 dataset is curated by ourselves for our multimodal AMT task. The dataset is avaiable at [zenodo](https://zenodo.org/records/10814703)
+N20EMv2 dataset is curated by ourselves for our multimodal AMT task. The dataset is avaiable at this website https://zenodo.org/records/10814703.
 
 
 NOTE: 
