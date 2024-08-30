@@ -13,7 +13,7 @@ from tqdm import tqdm
 SAMPLERATE=16000
 
 
-def prepare_csv_n20emv2_feat(folder, csv_folder="./data_feat", dur_thrd=5):
+def prepare_csv_n20emv2_feat(folder, csv_folder="./data_feat", frame_rate=49.8, dur_thrd=5):
     """
     This function creates csv files for speechbrain to process, dur_thrd is the threshold for the duration
     """
@@ -34,7 +34,7 @@ def prepare_csv_n20emv2_feat(folder, csv_folder="./data_feat", dur_thrd=5):
         split = annotations[entry]["split"]
         audio_path = os.path.join(folder_data, entry, "noise_data", "clean_feats.pt")
         video_path = os.path.join(folder_data, entry, "noise_data", "video_feats.pt")
-        anno_path = os.path.join(folder_data, entry, "frame_anno.npy")
+        anno_path = os.path.join(folder_data, entry, "audio_anno", str(frame_rate) + "fps", "audio_frame_anno.npy")
         song_anno_path = os.path.join(folder_data, entry, "note_anno.json")
 
         # load the audio
@@ -87,6 +87,7 @@ def prepare_csv_n20emv2_feat(folder, csv_folder="./data_feat", dur_thrd=5):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--duration", type=int, default=5, help="the threshold for duration")
+    parser.add_argument("--frame_rate", type=float, default=49.8, help="The frame-rate for SSL models")
     parser.add_argument("--n20emv2", type=str, default="/path/to/N20EMv2", help="The path to save N20EMv2 dataset")
     args = parser.parse_args()
-    prepare_csv_n20emv2_feat(folder=args.n20emv2, dur_thrd=args.duration)
+    prepare_csv_n20emv2_feat(folder=args.n20emv2, frame_rate=args.frame_rate, dur_thrd=args.duration)

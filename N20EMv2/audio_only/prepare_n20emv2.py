@@ -50,7 +50,7 @@ def prepare_frame_anno(folder, frame_rate=49.8):
         np.save(npy_path, frame_label)
 
 
-def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5):
+def prepare_csv_n20emv2(folder, csv_folder="./data", frame_rate=49.8, dur_thrd=5):
     """
     This function creates csv files for speechbrain to process, dur_thrd is the threshold for the duration
     """
@@ -70,7 +70,7 @@ def prepare_csv_n20emv2(folder, csv_folder="./data", dur_thrd=5):
     for entry in tqdm(annotations.keys()):
         split = annotations[entry]["split"]
         audio_path = os.path.join(folder_data, entry, "vocals.wav")
-        anno_path = os.path.join(folder_data, entry, "frame_anno.npy")
+        anno_path = os.path.join(folder_data, entry, "audio_anno", str(frame_rate) + "fps", "audio_frame_anno.npy")
         song_anno_path = os.path.join(folder_data, entry, "note_anno.json")
 
         # load the audio
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     prepare_frame_anno(folder=args.n20emv2, frame_rate=args.frame_rate)
-    prepare_csv_n20emv2(folder=args.n20emv2, dur_thrd=args.duration)
+    prepare_csv_n20emv2(folder=args.n20emv2, frame_rate=args.frame_rate, dur_thrd=args.duration)
     save_folder = os.path.join("./data", "dur_" + str(args.duration) + "s")
     
     merge_files = ["mir_st500_train.csv", "n20em_train.csv"]
